@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: sales-tracking-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sales_tracking
+    ports:
+      - "5434:5432"
+    volumes:
+      - sales_tracking_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sales_tracking"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  sales_tracking_pg_data:
