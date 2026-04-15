@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UsersModule } from '../users/users.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { JwtModuleOptions } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -14,10 +15,19 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     PassportModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET') ?? '',
-        signOptions: { expiresIn: config.get<number>('JWT_EXPIRES_IN') ?? 7 * 24 * 60 * 60 },
-      }),
+      useFactory: (config: ConfigService) => {
+        const secret = config.get<string>('JWT_SECRET');
+        if (!secret) {
+          throw new Error('JWT_SECRET is required');
+        }
+    
+        return <JwtModuleOptions>{
+          secret,
+          signOptions: {
+            expiresIn: config.get<string>('JWT_EXPIRES_IN') ?? '7d'
+          },
+        };
+      },
     }),
   ],
   controllers: [AuthController],
