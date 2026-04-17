@@ -31,5 +31,25 @@ model Workspace {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+
+  sales SaleRecord[]
+
   @@index([ownerId])
+
 }
+
+
+model SaleRecord {
+  id String @id @default(uuid())
+  workspaceId String
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  date DateTime
+  salesCount Int
+  salesAmount Decimal @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workspaceId, date])
+  @@index([workspaceId, date])
+}
+
