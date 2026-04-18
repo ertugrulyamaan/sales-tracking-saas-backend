@@ -33,7 +33,8 @@ model Workspace {
 
 
   sales SaleRecord[]
-
+  refunds RefundRecord[]
+  targets Target[]
   @@index([ownerId])
 
 }
@@ -53,3 +54,30 @@ model SaleRecord {
   @@index([workspaceId, date])
 }
 
+model RefundRecord {
+  id            String    @id @default(uuid())
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  date          DateTime
+  refundCount   Int
+  refundAmount  Decimal   @db.Decimal(10, 2)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([workspaceId, date])
+  @@index([workspaceId, date])
+}
+
+model Target {
+  id                String    @id @default(uuid())
+  workspaceId       String
+  workspace         Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  weekStartDate     DateTime
+  targetSalesAmount Decimal   @db.Decimal(10, 2)
+  targetSalesCount  Int
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([workspaceId, weekStartDate])
+  @@index([workspaceId, weekStartDate])
+}

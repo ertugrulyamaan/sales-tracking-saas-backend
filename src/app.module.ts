@@ -7,10 +7,11 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { WorkspaceModule } from './modules/workspace/workspace.module';
 import { SalesModule } from './modules/sales/sales.module';
-
+import { RefundsModule } from './modules/refunds/refunds.module';
+import { TargetsModule } from './modules/targets/targets.module';
 
 @Module({
-  imports: [UsersModule, AuthModule, PrismaModule, WorkspaceModule, SalesModule,  ConfigModule.forRoot({
+  imports: [UsersModule, AuthModule, PrismaModule, WorkspaceModule, SalesModule, RefundsModule, TargetsModule,  ConfigModule.forRoot({
     isGlobal: true,
   })],
   controllers: [AppController],
