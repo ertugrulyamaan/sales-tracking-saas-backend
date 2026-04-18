@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UpsertSaleDto } from './dto/upsert-sales.dto';
@@ -20,19 +20,49 @@ export class SalesService {
     }
   }
 
+  private parseDateOnly(dateStr: string): Date {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+    if (!match) {
+      throw new BadRequestException('Date must be in YYYY-MM-DD format');
+    }
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+
+    const utcDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    if (
+      utcDate.getUTCFullYear() !== year ||
+      utcDate.getUTCMonth() !== month - 1 ||
+      utcDate.getUTCDate() !== day
+    ) {
+      throw new BadRequestException('Invalid calendar date');
+    }
+
+    return utcDate;
+  }
+
+  private endOfDayUtc(dateStr: string): Date {
+    const d = this.parseDateOnly(dateStr);
+    d.setUTCHours(23, 59, 59, 999);
+    return d;
+  }
+
   async upsertDaily(userId: string, dto: UpsertSaleDto) {
     await this.assertWorkspaceOwner(dto.workspaceId, userId);
+
+    const date = this.parseDateOnly(dto.date);
 
     return this.prisma.saleRecord.upsert({
       where: {
         workspaceId_date: {
           workspaceId: dto.workspaceId,
-          date: new Date(dto.date),
+          date,
         },
       },
       create: {
         workspaceId: dto.workspaceId,
-        date: new Date(dto.date),
+        date,
         salesCount: dto.salesCount,
         salesAmount: new Prisma.Decimal(dto.salesAmount),
       },
@@ -46,11 +76,13 @@ export class SalesService {
   async addToDaily(userId: string, dto: AddSaleDto) {
     await this.assertWorkspaceOwner(dto.workspaceId, userId);
 
+    const date = this.parseDateOnly(dto.date);
+
     const existing = await this.prisma.saleRecord.findUnique({
       where: {
         workspaceId_date: {
           workspaceId: dto.workspaceId,
-          date: new Date(dto.date),
+          date,
         },
       },
     });
@@ -59,7 +91,7 @@ export class SalesService {
       return this.prisma.saleRecord.create({
         data: {
           workspaceId: dto.workspaceId,
-          date: new Date(dto.date),
+          date,
           salesCount: dto.addSalesCount,
           salesAmount: new Prisma.Decimal(dto.addSalesAmount),
         },
@@ -82,8 +114,8 @@ export class SalesService {
       where: {
         workspaceId: query.workspaceId,
         date: {
-          gte: query.from ? new Date(query.from) : undefined,
-          lte: query.to ? new Date(query.to) : undefined,
+          gte: query.from ? this.parseDateOnly(query.from) : undefined,
+          lte: query.to ? this.endOfDayUtc(query.to) : undefined,
         },
       },
       orderBy: { date: 'asc' },

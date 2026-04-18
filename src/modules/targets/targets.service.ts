@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UpsertTargetDto } from './dto/upsert-target.dto';
@@ -19,19 +19,49 @@ export class TargetsService {
     }
   }
 
+  private parseDateOnly(dateStr: string): Date {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+    if (!match) {
+      throw new BadRequestException('Date must be in YYYY-MM-DD format');
+    }
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+
+    const utcDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    if (
+      utcDate.getUTCFullYear() !== year ||
+      utcDate.getUTCMonth() !== month - 1 ||
+      utcDate.getUTCDate() !== day
+    ) {
+      throw new BadRequestException('Invalid calendar date');
+    }
+
+    return utcDate;
+  }
+
+  private endOfDayUtc(dateStr: string): Date {
+    const d = this.parseDateOnly(dateStr);
+    d.setUTCHours(23, 59, 59, 999);
+    return d;
+  }
+
   async upsertWeekly(userId: string, dto: UpsertTargetDto) {
     await this.assertWorkspaceOwner(dto.workspaceId, userId);
+
+    const weekStartDate = this.parseDateOnly(dto.weekStartDate);
 
     return this.prisma.target.upsert({
       where: {
         workspaceId_weekStartDate: {
           workspaceId: dto.workspaceId,
-          weekStartDate: new Date(dto.weekStartDate),
+          weekStartDate,
         },
       },
       create: {
         workspaceId: dto.workspaceId,
-        weekStartDate: new Date(dto.weekStartDate),
+        weekStartDate,
         targetSalesAmount: new Prisma.Decimal(dto.targetSalesAmount),
         targetSalesCount: dto.targetSalesCount,
       },
@@ -49,8 +79,8 @@ export class TargetsService {
       where: {
         workspaceId: query.workspaceId,
         weekStartDate: {
-          gte: query.fromWeekStart ? new Date(query.fromWeekStart) : undefined,
-          lte: query.toWeekStart ? new Date(query.toWeekStart) : undefined,
+          gte: query.fromWeekStart ? this.parseDateOnly(query.fromWeekStart) : undefined,
+          lte: query.toWeekStart ? this.endOfDayUtc(query.toWeekStart) : undefined,
         },
       },
       orderBy: { weekStartDate: 'asc' },

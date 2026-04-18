@@ -9,9 +9,10 @@ import { WorkspaceModule } from './modules/workspace/workspace.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { RefundsModule } from './modules/refunds/refunds.module';
 import { TargetsModule } from './modules/targets/targets.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 @Module({
-  imports: [UsersModule, AuthModule, PrismaModule, WorkspaceModule, SalesModule, RefundsModule, TargetsModule,  ConfigModule.forRoot({
+  imports: [UsersModule, AuthModule, PrismaModule, WorkspaceModule, SalesModule, RefundsModule, TargetsModule, AnalyticsModule,  ConfigModule.forRoot({
     isGlobal: true,
   })],
   controllers: [AppController],
