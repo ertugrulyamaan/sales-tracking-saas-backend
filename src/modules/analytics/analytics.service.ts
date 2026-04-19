@@ -116,6 +116,71 @@ export class AnalyticsService {
     return lines;
   }
 
+  async getDailySummary(userId: string, workspaceId: string, date: string) {
+    await this.assertWorkspaceOwner(workspaceId, userId);
+
+    const currentDate = this.parseDateOnly(date);
+    const previousDate = new Date(currentDate);
+    previousDate.setUTCDate(previousDate.getUTCDate() - 1);
+
+    const [currentSales, currentRefunds, previousSales, previousRefunds] =
+      await Promise.all([
+        this.prisma.saleRecord.findUnique({
+          where: { workspaceId_date: { workspaceId, date: currentDate } },
+        }),
+        this.prisma.refundRecord.findUnique({
+          where: { workspaceId_date: { workspaceId, date: currentDate } },
+        }),
+        this.prisma.saleRecord.findUnique({
+          where: { workspaceId_date: { workspaceId, date: previousDate } },
+        }),
+        this.prisma.refundRecord.findUnique({
+          where: { workspaceId_date: { workspaceId, date: previousDate } },
+        }),
+      ]);
+
+    const current = {
+      date: this.toDateOnlyString(currentDate),
+      salesCount: currentSales?.salesCount ?? 0,
+      salesAmount: this.round2(this.toNumber(currentSales?.salesAmount)),
+      refundCount: currentRefunds?.refundCount ?? 0,
+      refundAmount: this.round2(this.toNumber(currentRefunds?.refundAmount)),
+    };
+
+    const previous = {
+      date: this.toDateOnlyString(previousDate),
+      salesCount: previousSales?.salesCount ?? 0,
+      salesAmount: this.round2(this.toNumber(previousSales?.salesAmount)),
+      refundCount: previousRefunds?.refundCount ?? 0,
+      refundAmount: this.round2(this.toNumber(previousRefunds?.refundAmount)),
+    };
+
+    const currentNetRevenue = this.round2(current.salesAmount - current.refundAmount);
+    const previousNetRevenue = this.round2(previous.salesAmount - previous.refundAmount);
+
+    const dayOverDay = {
+      salesAmountDiff: this.round2(current.salesAmount - previous.salesAmount),
+      refundAmountDiff: this.round2(current.refundAmount - previous.refundAmount),
+      netRevenueDiff: this.round2(currentNetRevenue - previousNetRevenue),
+      salesAmountChangePct: this.pctChange(current.salesAmount, previous.salesAmount),
+      refundAmountChangePct: this.pctChange(current.refundAmount, previous.refundAmount),
+      netRevenueChangePct: this.pctChange(currentNetRevenue, previousNetRevenue),
+    };
+
+    return {
+      workspaceId,
+      current: {
+        ...current,
+        netRevenue: currentNetRevenue,
+      },
+      previous: {
+        ...previous,
+        netRevenue: previousNetRevenue,
+      },
+      dayOverDay,
+    };
+  }
+
   async getWeeklySummary(userId: string, workspaceId: string, weekStartDate: string) {
     await this.assertWorkspaceOwner(workspaceId, userId);
 
